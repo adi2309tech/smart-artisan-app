@@ -3,12 +3,14 @@ import { GoogleGenAI } from '@google/genai';
 import { 
   Store, Package, TrendingUp, DollarSign, Sparkles, 
   Globe, LogOut, ArrowRight, ShieldCheck, CheckCircle2, Mic, MicOff, Image as ImageIcon,
-  Bot, RefreshCw
+  Bot, RefreshCw, Scissors
 } from 'lucide-react';
 
-// Accesses your Gemini API Key from Vite environment variables
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Initialize Gemini API using your existing environment variable
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+
+// Optional Background Removal API Key (e.g., remove.bg)
+const REMOVE_BG_KEY = import.meta.env.VITE_REMOVE_BG_API_KEY;
 
 const INITIAL_INVENTORY = [
   {
@@ -118,16 +120,45 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const [stock, setStock] = useState('10');
   const [imagePreview, setImagePreview] = useState(null);
   
-  // State for AI execution feedback
+  // Processing States
   const [isRecording, setIsRecording] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [isRemovingBg, setIsRemovingBg] = useState(false);
   const [aiError, setAiError] = useState('');
 
   // Audio Recording Refs
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Converts standard browser File object to standard Inline Data format required by Gemini API
+  // Remove Background Utility Function
+  const removeBackground = async (file) => {
+    if (!REMOVE_BG_KEY) return file; // Skip if no API key provided
+
+    setIsRemovingBg(true);
+    const formData = new FormData();
+    formData.append('image_file', file);
+    formData.append('size', 'auto');
+
+    try {
+      const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+        method: 'POST',
+        headers: { 'X-Api-Key': REMOVE_BG_KEY },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Background removal failed');
+
+      const blob = await response.blob();
+      return new File([blob], file.name.replace(/\.[^/.]+$/, "") + "_no_bg.png", { type: 'image/png' });
+    } catch (err) {
+      console.warn("Background removal skipped/failed:", err);
+      return file; // Fallback to original image
+    } finally {
+      setIsRemovingBg(false);
+    }
+  };
+
+  // Convert File to Gemini Base64 Format
   const fileToGenerativePart = async (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -144,24 +175,25 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     });
   };
 
-  // 1. Image analysis powered directly by your Gemini API Key
+  // 1. Image Processing & Vision Analysis via Gemini
   const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
 
     setAiError('');
     setIsAiAnalyzing(true);
 
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-
     try {
-      if (!apiKey) {
-        throw new Error("VITE_GEMINI_API_KEY is not defined in your environment variables (.env file).");
-      }
+      // Step A: Process Background Removal (if key exists)
+      const processedFile = await removeBackground(originalFile);
 
-      const imagePart = await fileToGenerativePart(file);
+      // Display Preview
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(processedFile);
+
+      // Step B: Send to Gemini Vision API
+      const imagePart = await fileToGenerativePart(processedFile);
       
       const prompt = `Analyze this handicraft image and respond ONLY with a strict valid JSON object in this exact format:
       {
@@ -171,7 +203,6 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         "suggestedPrice": "Estimated fair artisan price in INR as an integer, e.g. 2400"
       }`;
 
-      // Call Gemini model
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [prompt, imagePart]
@@ -186,18 +217,16 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         if (parsed.category) setCategory(parsed.category);
         if (parsed.description) setDescription(parsed.description);
         if (parsed.suggestedPrice) setSuggestedPrice(String(parsed.suggestedPrice));
-      } else {
-        throw new Error("Model returned invalid JSON format.");
       }
     } catch (err) {
-      console.error("Gemini Vision Error:", err);
-      setAiError(err.message || "Failed to analyze image with Gemini API.");
+      console.error("Image Processing Error:", err);
+      setAiError("Failed to analyze image.");
     } finally {
       setIsAiAnalyzing(false);
     }
   };
 
-  // 2. Audio recording and transcription via Gemini API Key
+  // 2. Audio Transcription via Gemini API
   const startRecording = async () => {
     setAiError('');
     try {
@@ -233,10 +262,6 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const processAudioWithGemini = async (audioBlob) => {
     setIsAiAnalyzing(true);
     try {
-      if (!apiKey) {
-        throw new Error("VITE_GEMINI_API_KEY is missing.");
-      }
-
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onloadend = async () => {
@@ -262,7 +287,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
       };
     } catch (err) {
       console.error("Gemini Audio Transcription Error:", err);
-      setAiError("Audio transcription failed. Ensure audio is clear.");
+      setAiError("Audio transcription failed.");
     } finally {
       setIsAiAnalyzing(false);
     }
@@ -386,7 +411,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
             className="px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:opacity-90 text-slate-950 rounded-xl text-xs font-black transition-all shadow-lg shadow-amber-500/20 flex items-center space-x-2"
           >
             <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>AI Product Upload (Gemini API)</span>
+            <span>AI Product Upload</span>
           </button>
         </div>
 
@@ -434,18 +459,18 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         </div>
       </main>
 
-      {/* Gemini API Product Upload Modal */}
+      {/* Product Upload Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-[#111425] border border-amber-500/30 rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl relative">
             <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
               <div className="flex items-center space-x-2">
                 <Bot className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-black text-white">Gemini API Listing Studio</h3>
+                <h3 className="text-base font-black text-white">Gemini Listing Studio</h3>
               </div>
               <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                {isAiAnalyzing && <RefreshCw className="w-3 h-3 animate-spin" />}
-                {isAiAnalyzing ? 'Gemini Processing...' : 'Live API Active'}
+                {(isAiAnalyzing || isRemovingBg) && <RefreshCw className="w-3 h-3 animate-spin" />}
+                {isRemovingBg ? 'Removing Background...' : isAiAnalyzing ? 'Gemini Vision Active...' : 'Ready'}
               </span>
             </div>
 
@@ -457,11 +482,19 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
             
             <form onSubmit={handleAddProduct} className="space-y-4">
               
-              {/* 1. Image Analysis Upload Section */}
+              {/* Image Upload Section */}
               <div>
-                <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
-                  1. Upload Photo (Analyzed by Gemini 2.5 Vision)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                    1. Upload Photo (Background Removal + Gemini AI)
+                  </label>
+                  {REMOVE_BG_KEY && (
+                    <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                      <Scissors className="w-2.5 h-2.5" /> Auto BG Remover Enabled
+                    </span>
+                  )}
+                </div>
+
                 <div className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/80 rounded-2xl p-4 text-center cursor-pointer bg-[#080911]/60 transition-all relative">
                   <input 
                     type="file" 
@@ -470,14 +503,14 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                   {imagePreview ? (
-                    <div className="relative h-36 w-full rounded-xl overflow-hidden">
-                      <img src={imagePreview} alt="Craft Preview" className="w-full h-full object-cover" />
+                    <div className="relative h-36 w-full rounded-xl overflow-hidden bg-[radial-gradient(#1e2238_1px,transparent_1px)] [background-size:16px_16px]">
+                      <img src={imagePreview} alt="Craft Preview" className="w-full h-full object-contain" />
                     </div>
                   ) : (
                     <div className="space-y-1 py-2">
                       <ImageIcon className="w-8 h-8 text-amber-400 mx-auto" />
                       <p className="text-xs font-extrabold text-slate-200">Click or Drag Photo to Analyze</p>
-                      <p className="text-[10px] text-slate-500">Gemini will analyze the photo directly to generate details</p>
+                      <p className="text-[10px] text-slate-500">Auto-removes background and generates product details</p>
                     </div>
                   )}
                 </div>
@@ -512,7 +545,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                 </div>
               </div>
 
-              {/* 2. Audio Recording to Gemini Speech Transcription */}
+              {/* Audio Recording Section */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">
@@ -540,7 +573,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                 />
               </div>
 
-              {/* 3. Dynamic Price & Stock */}
+              {/* Price & Stock */}
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">
