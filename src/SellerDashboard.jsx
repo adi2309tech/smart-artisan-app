@@ -1,13 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Upload, Sparkles, Image as ImageIcon, AlertCircle, 
+  Upload, Sparkles, AlertCircle, 
   CheckCircle2, LogOut, ArrowRight, RefreshCw, X, Tag, IndianRupee, Palette, ShoppingBag 
 } from 'lucide-react';
 
 const REMOVE_BG_KEY = import.meta.env.VITE_REMOVE_BG_API_KEY;
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Helper: Convert File to Base64 for Gemini Vision
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -17,7 +16,6 @@ const fileToBase64 = (file) => {
   });
 };
 
-// Studio Background Options
 const BG_STYLES = [
   { id: 'dark_studio', name: 'Dark Studio', color: '#1e293b' },
   { id: 'clean_white', name: 'Clean White', color: '#ffffff' },
@@ -29,11 +27,13 @@ const BG_STYLES = [
   { id: 'transparent', name: 'Transparent', color: 'transparent' }
 ];
 
-// Composite Selected Background onto Transformed Image
 const applyStudioBackground = (transparentFile, styleId) => {
   return new Promise((resolve, reject) => {
     if (styleId === 'transparent') {
-      resolve(transparentFile);
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(transparentFile);
       return;
     }
 
@@ -49,7 +49,6 @@ const applyStudioBackground = (transparentFile, styleId) => {
       canvas.width = size;
       canvas.height = size;
 
-      // Draw Background
       let gradient;
       switch (styleId) {
         case 'dark_studio':
@@ -100,7 +99,6 @@ const applyStudioBackground = (transparentFile, styleId) => {
       ctx.fillStyle = gradient || '#ffffff';
       ctx.fillRect(0, 0, size, size);
 
-      // Draw Shadow
       const shadowY = size * 0.74;
       const isLightBg = ['clean_white', 'pastel_pink', 'soft_sage'].includes(styleId);
       const shadowGradient = ctx.createRadialGradient(size / 2, shadowY, 5, size / 2, shadowY, size * 0.38);
@@ -114,7 +112,6 @@ const applyStudioBackground = (transparentFile, styleId) => {
       ctx.fill();
       ctx.restore();
 
-      // Draw Scaled Image
       const padding = size * 0.16;
       const maxDrawWidth = size - padding * 2;
       const maxDrawHeight = size - padding * 2;
@@ -128,16 +125,80 @@ const applyStudioBackground = (transparentFile, styleId) => {
       const drawY = (size - drawHeight) / 2;
       ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
-      canvas.toBlob((blob) => {
-        if (!blob) return reject(new Error("Failed to render backdrop"));
-        const studioFile = new File([blob], `studio_${transparentFile.name}`, { type: 'image/jpeg' });
-        resolve(studioFile);
-      }, 'image/jpeg', 0.95);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      resolve(dataUrl);
     };
 
     img.onerror = (err) => reject(err);
   });
 };
+
+export function SellerLogin({ onLoginSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Please fill in both email and password.');
+      return;
+    }
+    setError('');
+    onLoginSuccess();
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0b0d17] flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl space-y-6">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-2">
+            <Sparkles className="w-6 h-6" />
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Seller Studio</h1>
+          <p className="text-xs text-slate-400">Sign in to manage inventory and AI image processing</p>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seller@store.com"
+              className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+          >
+            Access Dashboard
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublishProduct }) {
   const [originalFile, setOriginalFile] = useState(null);
@@ -224,11 +285,11 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
       setCleanBgFile(transparentFile);
 
       setStatusMessage('Applying background studio...');
-      const studioImageFile = await applyStudioBackground(transparentFile, selectedBgStyle);
-      setProcessedImage(URL.createObjectURL(studioImageFile));
+      const studioImageDataUrl = await applyStudioBackground(transparentFile, selectedBgStyle);
+      setProcessedImage(studioImageDataUrl);
 
       setStatusMessage('Analyzing product with AI...');
-      const details = await analyzeWithGemini(studioImageFile);
+      const details = await analyzeWithGemini(transparentFile);
       setProductDetails(details);
     } catch (err) {
       setErrorMsg(err.message || 'Failed to process image');
@@ -244,13 +305,25 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
     setIsProcessing(true);
     try {
       setStatusMessage('Updating background studio...');
-      const studioImageFile = await applyStudioBackground(cleanBgFile, styleId);
-      setProcessedImage(URL.createObjectURL(studioImageFile));
+      const studioImageDataUrl = await applyStudioBackground(cleanBgFile, styleId);
+      setProcessedImage(studioImageDataUrl);
     } catch (err) {
       setErrorMsg('Failed to apply background.');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleReset = () => {
+    setOriginalFile(null);
+    setOriginalImage(null);
+    setProcessedImage(null);
+    setCleanBgFile(null);
+    setErrorMsg('');
+    setStatusMessage('');
+    setPublishSuccess(false);
+    setProductDetails({ title: '', category: '', description: '', priceINR: '', tags: [] });
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handlePublish = () => {
@@ -261,16 +334,22 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
 
     const newProduct = {
       id: Date.now(),
-      ...productDetails,
+      title: productDetails.title,
+      category: productDetails.category || 'General',
+      description: productDetails.description || '',
+      price: productDetails.priceINR ? parseFloat(productDetails.priceINR) : 0,
+      priceINR: productDetails.priceINR || '0',
+      tags: productDetails.tags || [],
       image: processedImage,
       created: new Date().toISOString()
     };
 
-    // 1. Save to Local Storage Marketplace
     const existing = JSON.parse(localStorage.getItem('marketplace_products') || '[]');
-    localStorage.setItem('marketplace_products', JSON.stringify([newProduct, ...existing]));
+    const updatedList = [newProduct, ...existing];
+    
+    localStorage.setItem('marketplace_products', JSON.stringify(updatedList));
+    window.dispatchEvent(new Event('storage'));
 
-    // 2. Trigger parent callback if provided
     if (onPublishProduct) {
       onPublishProduct(newProduct);
     }
@@ -280,7 +359,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
 
   return (
     <div className="min-h-screen bg-[#0b0d17] p-6 space-y-6">
-      {/* Header */}
       <header className="max-w-7xl mx-auto flex items-center justify-between p-4 bg-slate-900/60 border border-slate-800 rounded-2xl backdrop-blur-md">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400">
@@ -303,11 +381,8 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
       </header>
 
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Background Selector + Image Upload */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-            
-            {/* BACKGROUND SELECTION OPTION (ALWAYS VISIBLE) */}
             <div>
               <label className="text-xs font-semibold text-amber-400 flex items-center gap-1.5 mb-2">
                 <Palette className="w-4 h-4" /> 1. Select Background Preset
@@ -331,7 +406,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
               </div>
             </div>
 
-            {/* UPLOAD ZONE */}
             {!originalImage ? (
               <label className="flex flex-col items-center justify-center h-52 border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl cursor-pointer bg-slate-950/40 transition-all p-6 text-center">
                 <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} className="hidden" />
@@ -355,6 +429,12 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
                     )}
                   </div>
                 </div>
+                <button
+                  onClick={handleReset}
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-3.5 h-3.5" /> Upload Different Image
+                </button>
               </div>
             )}
 
@@ -374,7 +454,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
           </div>
         </div>
 
-        {/* Right: Product Details & Publish */}
         <div className="lg:col-span-7">
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
             <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
@@ -405,12 +484,15 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Price (INR)</label>
-                  <input
-                    type="number"
-                    value={productDetails.priceINR}
-                    onChange={(e) => setProductDetails({ ...productDetails, priceINR: e.target.value })}
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
-                  />
+                  <div className="relative">
+                    <IndianRupee className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                    <input
+                      type="number"
+                      value={productDetails.priceINR}
+                      onChange={(e) => setProductDetails({ ...productDetails, priceINR: e.target.value })}
+                      className="w-full pl-8 pr-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -422,6 +504,23 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
                   onChange={(e) => setProductDetails({ ...productDetails, description: e.target.value })}
                   className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
+                  <Tag className="w-3 h-3 text-slate-400" /> Generated Tags
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {productDetails.tags && productDetails.tags.length > 0 ? (
+                    productDetails.tags.map((tag, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] rounded-lg font-medium">
+                        #{tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-slate-600 italic">No tags generated yet</span>
+                  )}
+                </div>
               </div>
             </div>
 
