@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Upload, Sparkles, Image as ImageIcon, AlertCircle, 
-  CheckCircle2, LogOut, ArrowRight, RefreshCw, X, Tag, IndianRupee 
+  CheckCircle2, LogOut, ArrowRight, RefreshCw, X, Tag, IndianRupee, Palette 
 } from 'lucide-react';
 
 const REMOVE_BG_KEY = import.meta.env.VITE_REMOVE_BG_API_KEY;
@@ -17,9 +17,26 @@ const fileToBase64 = (file) => {
   });
 };
 
-// Helper: Composite Professional Studio Background behind transparent PNG
-const applyStudioBackground = (transparentFile) => {
+// Expanded Studio Background Presets
+const BG_STYLES = [
+  { id: 'dark_studio', name: 'Dark Studio', color: '#1e293b' },
+  { id: 'clean_white', name: 'Clean White', color: '#f8fafc' },
+  { id: 'warm_amber', name: 'Warm Amber', color: '#451a03' },
+  { id: 'spotlight', name: 'Spotlight Stage', color: '#090d16' },
+  { id: 'pastel_pink', name: 'Pastel Blush', color: '#fbcfe8' },
+  { id: 'soft_sage', name: 'Soft Sage', color: '#d1fae5' },
+  { id: 'luxury_gold', name: 'Luxury Gold', color: '#78350f' },
+  { id: 'transparent', name: 'Transparent', color: 'transparent' }
+];
+
+// Helper: Composite Selected Background & Lighting FX
+const applyStudioBackground = (transparentFile, styleId) => {
   return new Promise((resolve, reject) => {
+    if (styleId === 'transparent') {
+      resolve(transparentFile);
+      return;
+    }
+
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = URL.createObjectURL(transparentFile);
@@ -28,41 +45,97 @@ const applyStudioBackground = (transparentFile) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
-      // Set standard high-res square dimensions for e-commerce studio look
-      const size = Math.max(img.width, img.height, 1080);
+      const size = Math.max(img.width, img.height, 1200);
       canvas.width = size;
       canvas.height = size;
 
-      // 1. Render Professional Dark Studio Radial Gradient
-      const gradient = ctx.createRadialGradient(
-        size / 2, size * 0.4, size * 0.1,  // Center spotlight origin
-        size / 2, size / 2, size * 0.8     // Radial expansion
-      );
-      gradient.addColorStop(0, '#2d3748');   // Soft top spotlight highlight
-      gradient.addColorStop(0.5, '#1a202c'); // Neutral mid-tone studio gray
-      gradient.addColorStop(1, '#0f172a');   // Dark rich outer edge
+      // 1. Draw Environment Backgrounds & Lighting
+      let gradient;
 
-      ctx.fillStyle = gradient;
+      switch (styleId) {
+        case 'dark_studio':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.4, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient.addColorStop(0, '#334155');
+          gradient.addColorStop(0.5, '#1e293b');
+          gradient.addColorStop(1, '#0f172a');
+          ctx.fillStyle = gradient;
+          break;
+
+        case 'clean_white':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.3, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient.addColorStop(0, '#ffffff');
+          gradient.addColorStop(0.7, '#f1f5f9');
+          gradient.addColorStop(1, '#e2e8f0');
+          ctx.fillStyle = gradient;
+          break;
+
+        case 'warm_amber':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.4, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient.addColorStop(0, '#78350f');
+          gradient.addColorStop(0.6, '#451a03');
+          gradient.addColorStop(1, '#1c1917');
+          ctx.fillStyle = gradient;
+          break;
+
+        case 'spotlight':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.35, size * 0.05, size / 2, size / 2, size * 0.7);
+          gradient.addColorStop(0, '#64748b');
+          gradient.addColorStop(0.3, '#1e293b');
+          gradient.addColorStop(1, '#020617');
+          ctx.fillStyle = gradient;
+          break;
+
+        case 'pastel_pink':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.3, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient.addColorStop(0, '#fdf2f8');
+          gradient.addColorStop(0.6, '#fce7f3');
+          gradient.addColorStop(1, '#fbcfe8');
+          ctx.fillStyle = gradient;
+          break;
+
+        case 'soft_sage':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.3, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient.addColorStop(0, '#f0fdf4');
+          gradient.addColorStop(0.6, '#dcfce7');
+          gradient.addColorStop(1, '#bbf7d0');
+          ctx.fillStyle = gradient;
+          break;
+
+        case 'luxury_gold':
+          gradient = ctx.createRadialGradient(size / 2, size * 0.35, size * 0.08, size / 2, size / 2, size * 0.9);
+          gradient.addColorStop(0, '#b45309');
+          gradient.addColorStop(0.5, '#78350f');
+          gradient.addColorStop(1, '#0f172a');
+          ctx.fillStyle = gradient;
+          break;
+
+        default:
+          ctx.fillStyle = '#ffffff';
+      }
+
       ctx.fillRect(0, 0, size, size);
 
-      // 2. Draw Soft Grounding Shadow beneath product
-      const shadowY = size * 0.72;
+      // 2. Draw Realistic Soft Drop Shadow
+      const shadowY = size * 0.74;
+      const isLightBg = ['clean_white', 'pastel_pink', 'soft_sage'].includes(styleId);
+      
       const shadowGradient = ctx.createRadialGradient(
-        size / 2, shadowY, 10,
-        size / 2, shadowY, size * 0.35
+        size / 2, shadowY, 5,
+        size / 2, shadowY, size * 0.38
       );
-      shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+      
+      shadowGradient.addColorStop(0, isLightBg ? 'rgba(15, 23, 42, 0.22)' : 'rgba(0, 0, 0, 0.7)');
       shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.save();
       ctx.fillStyle = shadowGradient;
       ctx.beginPath();
-      ctx.ellipse(size / 2, shadowY, size * 0.35, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(size / 2, shadowY, size * 0.36, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // 3. Draw Product Image centered with padding
-      const padding = size * 0.15;
+      // 3. Scale and Draw Product Image
+      const padding = size * 0.16;
       const maxDrawWidth = size - padding * 2;
       const maxDrawHeight = size - padding * 2;
 
@@ -78,10 +151,9 @@ const applyStudioBackground = (transparentFile) => {
 
       ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
-      // Convert Canvas to File Blob
       canvas.toBlob((blob) => {
         if (!blob) {
-          reject(new Error("Failed to render professional studio backdrop."));
+          reject(new Error("Failed to render studio photo."));
           return;
         }
         const studioFile = new File([blob], `studio_${transparentFile.name}`, { type: 'image/jpeg' });
@@ -167,13 +239,15 @@ export function SellerLogin({ onLoginSuccess }) {
 // MAIN SELLER DASHBOARD COMPONENT
 // -----------------------------------------------------------------------------
 export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
+  const [originalFile, setOriginalFile] = useState(null);
   const [originalImage, setOriginalImage] = useState(null);
   const [processedImage, setProcessedImage] = useState(null);
+  const [cleanBgFile, setCleanBgFile] = useState(null);
+  const [selectedBgStyle, setSelectedBgStyle] = useState('dark_studio');
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Extracted Product Metadata State
   const [productDetails, setProductDetails] = useState({
     title: '',
     category: '',
@@ -184,7 +258,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
 
   const fileInputRef = useRef(null);
 
-  // 1. Strict Remove.bg Handler
   const processRemoveBg = async (file) => {
     if (!REMOVE_BG_KEY) {
       throw new Error("Missing remove.bg API key. Please configure VITE_REMOVE_BG_API_KEY.");
@@ -196,9 +269,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
 
     const response = await fetch('https://api.remove.bg/v1.0/removebg', {
       method: 'POST',
-      headers: {
-        'X-Api-Key': REMOVE_BG_KEY,
-      },
+      headers: { 'X-Api-Key': REMOVE_BG_KEY },
       body: formData,
     });
 
@@ -211,7 +282,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
     return new File([blob], `bg_removed_${file.name}`, { type: 'image/png' });
   };
 
-  // 2. Gemini Vision AI Handler
   const analyzeWithGemini = async (imageFile) => {
     if (!GEMINI_API_KEY) {
       throw new Error("Missing Gemini API Key. Please configure VITE_GEMINI_API_KEY.");
@@ -219,7 +289,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
 
     const base64Data = await fileToBase64(imageFile);
 
-    const promptText = `Analyze this studio product image and output strictly a JSON object with:
+    const promptText = `Analyze this product image and output strictly a JSON object with:
     {
       "title": "A short marketing title",
       "category": "E-commerce category (e.g., Apparel, Footwear, Electronics)",
@@ -266,28 +336,26 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
     }
   };
 
-  // 3. Combined Pipeline Executor (Remove.bg -> Studio Canvas -> Gemini)
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setErrorMsg('');
     setIsProcessing(true);
+    setOriginalFile(file);
     setOriginalImage(URL.createObjectURL(file));
     setProcessedImage(null);
     setProductDetails({ title: '', category: '', description: '', priceINR: '', tags: [] });
 
     try {
-      // Step A: Strict Background Removal via Remove.bg
-      setStatusMessage('Removing original background via Remove.bg API...');
+      setStatusMessage('Removing background via Remove.bg API...');
       const transparentFile = await processRemoveBg(file);
+      setCleanBgFile(transparentFile);
 
-      // Step B: Render Professional Studio Backdrop
-      setStatusMessage('Applying professional studio backdrop & lighting...');
-      const studioImageFile = await applyStudioBackground(transparentFile);
+      setStatusMessage('Applying selected studio backdrop...');
+      const studioImageFile = await applyStudioBackground(transparentFile, selectedBgStyle);
       setProcessedImage(URL.createObjectURL(studioImageFile));
 
-      // Step C: Gemini AI Vision Analysis
       setStatusMessage('Analyzing product details with Gemini AI...');
       const details = await analyzeWithGemini(studioImageFile);
       setProductDetails(details);
@@ -301,9 +369,27 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
     }
   };
 
+  const handleStyleChange = async (styleId) => {
+    setSelectedBgStyle(styleId);
+    if (!cleanBgFile) return;
+
+    setIsProcessing(true);
+    try {
+      setStatusMessage('Re-rendering studio backdrop...');
+      const studioImageFile = await applyStudioBackground(cleanBgFile, styleId);
+      setProcessedImage(URL.createObjectURL(studioImageFile));
+    } catch (err) {
+      setErrorMsg('Failed to update background style.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleReset = () => {
+    setOriginalFile(null);
     setOriginalImage(null);
     setProcessedImage(null);
+    setCleanBgFile(null);
     setErrorMsg('');
     setStatusMessage('');
     setProductDetails({ title: '', category: '', description: '', priceINR: '', tags: [] });
@@ -319,8 +405,8 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-white">Seller Studio</h1>
-            <p className="text-xs text-slate-400">Remove.bg + Studio Backdrop + Gemini AI</p>
+            <h1 className="text-base font-bold text-white">Seller Studio Pro</h1>
+            <p className="text-xs text-slate-400">Professional Studio Environments & Gemini AI Analysis</p>
           </div>
         </div>
 
@@ -343,15 +429,42 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
 
       {/* Main Content Grid */}
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Upload & Studio Output (5 cols) */}
+        {/* Left Column: Upload & Background Selector (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
             <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
               <Upload className="w-4 h-4 text-amber-400" /> Upload Product Image
             </h2>
 
+            {/* Background Style Options Grid */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-amber-400" /> Studio Lighting Preset
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {BG_STYLES.map((style) => (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => handleStyleChange(style.id)}
+                    className={`p-2 rounded-xl text-[10px] font-semibold flex flex-col items-center gap-1 border transition-all ${
+                      selectedBgStyle === style.id
+                        ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span
+                      className="w-4 h-4 rounded-full border border-slate-700 shadow-sm"
+                      style={{ backgroundColor: style.color }}
+                    />
+                    <span className="truncate w-full text-center">{style.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {!originalImage ? (
-              <label className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl cursor-pointer bg-slate-950/40 hover:bg-slate-900/40 transition-all p-6 text-center group">
+              <label className="flex flex-col items-center justify-center h-56 border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl cursor-pointer bg-slate-950/40 hover:bg-slate-900/40 transition-all p-6 text-center group">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -364,9 +477,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
                 </div>
                 <p className="text-xs font-semibold text-slate-300">Click to upload product image</p>
                 <p className="text-[10px] text-slate-500 mt-1">PNG, JPG or WEBP (Max 10MB)</p>
-                <p className="text-[10px] text-amber-400/80 mt-3 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                  Auto-generates Studio Background & Lighting
-                </p>
               </label>
             ) : (
               <div className="space-y-4">
@@ -390,7 +500,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
                           {isProcessing ? (
                             <RefreshCw className="w-5 h-5 text-amber-400 animate-spin mx-auto" />
                           ) : (
-                            <span className="text-[10px] text-slate-500">Processing Studio Look...</span>
+                            <span className="text-[10px] text-slate-500">Processing...</span>
                           )}
                         </div>
                       )}
