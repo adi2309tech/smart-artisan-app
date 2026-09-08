@@ -6,7 +6,7 @@ import {
   Bot, RefreshCw
 } from 'lucide-react';
 
-// Initialize Gemini Client with standard API key setup
+// Accesses your Gemini API Key from Vite environment variables
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
@@ -118,16 +118,16 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const [stock, setStock] = useState('10');
   const [imagePreview, setImagePreview] = useState(null);
   
-  // Processing States
+  // State for AI execution feedback
   const [isRecording, setIsRecording] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [aiError, setAiError] = useState('');
 
-  // Audio Recording Refs & Speech Recognition
+  // Audio Recording Refs
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Helper: Convert File to Inline Data Base64 Object for Gemini API
+  // Converts standard browser File object to standard Inline Data format required by Gemini API
   const fileToGenerativePart = async (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -144,7 +144,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     });
   };
 
-  // 1. REAL GEMINI VISION API CALL: Analyze uploaded image directly
+  // 1. Image analysis powered directly by your Gemini API Key
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -152,14 +152,13 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     setAiError('');
     setIsAiAnalyzing(true);
 
-    // Show image preview locally
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
 
     try {
       if (!apiKey) {
-        throw new Error("Missing Gemini API Key. Please add VITE_GEMINI_API_KEY to your .env file.");
+        throw new Error("VITE_GEMINI_API_KEY is not defined in your environment variables (.env file).");
       }
 
       const imagePart = await fileToGenerativePart(file);
@@ -172,14 +171,13 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         "suggestedPrice": "Estimated fair artisan price in INR as an integer, e.g. 2400"
       }`;
 
-      // Call Gemini 2.5 Flash for Multimodal Vision Task
+      // Call Gemini model
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [prompt, imagePart]
       });
 
       const responseText = response.text;
-      // Clean potential markdown wrap ```json ... ```
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {
@@ -188,6 +186,8 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         if (parsed.category) setCategory(parsed.category);
         if (parsed.description) setDescription(parsed.description);
         if (parsed.suggestedPrice) setSuggestedPrice(String(parsed.suggestedPrice));
+      } else {
+        throw new Error("Model returned invalid JSON format.");
       }
     } catch (err) {
       console.error("Gemini Vision Error:", err);
@@ -197,7 +197,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     }
   };
 
-  // 2. REAL AUDIO TRANSCRIPTION API: Record micro audio & transcribe via Web Speech / Gemini API
+  // 2. Audio recording and transcription via Gemini API Key
   const startRecording = async () => {
     setAiError('');
     try {
@@ -226,7 +226,6 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      // Stop audio tracks
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
   };
@@ -234,6 +233,10 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const processAudioWithGemini = async (audioBlob) => {
     setIsAiAnalyzing(true);
     try {
+      if (!apiKey) {
+        throw new Error("VITE_GEMINI_API_KEY is missing.");
+      }
+
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onloadend = async () => {
@@ -265,7 +268,6 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     }
   };
 
-  // Submit Final Craft Listing
   const handleAddProduct = (e) => {
     e.preventDefault();
     if (!title || !suggestedPrice) return;
@@ -432,7 +434,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         </div>
       </main>
 
-      {/* Real Gemini API Product Upload Modal */}
+      {/* Gemini API Product Upload Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-[#111425] border border-amber-500/30 rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl relative">
@@ -455,7 +457,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
             
             <form onSubmit={handleAddProduct} className="space-y-4">
               
-              {/* 1. REAL Image Analysis Upload Section */}
+              {/* 1. Image Analysis Upload Section */}
               <div>
                 <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
                   1. Upload Photo (Analyzed by Gemini 2.5 Vision)
@@ -475,7 +477,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                     <div className="space-y-1 py-2">
                       <ImageIcon className="w-8 h-8 text-amber-400 mx-auto" />
                       <p className="text-xs font-extrabold text-slate-200">Click or Drag Photo to Analyze</p>
-                      <p className="text-[10px] text-slate-500">Gemini will auto-generate title, description, category & price</p>
+                      <p className="text-[10px] text-slate-500">Gemini will analyze the photo directly to generate details</p>
                     </div>
                   )}
                 </div>
@@ -510,7 +512,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                 </div>
               </div>
 
-              {/* 2. REAL Audio Recording to Gemini Speech Transcription */}
+              {/* 2. Audio Recording to Gemini Speech Transcription */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">
