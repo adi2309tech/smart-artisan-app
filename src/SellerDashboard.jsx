@@ -17,6 +17,82 @@ const fileToBase64 = (file) => {
   });
 };
 
+// Helper: Composite Professional Studio Background behind transparent PNG
+const applyStudioBackground = (transparentFile) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = URL.createObjectURL(transparentFile);
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Set standard high-res square dimensions for e-commerce studio look
+      const size = Math.max(img.width, img.height, 1080);
+      canvas.width = size;
+      canvas.height = size;
+
+      // 1. Render Professional Dark Studio Radial Gradient
+      const gradient = ctx.createRadialGradient(
+        size / 2, size * 0.4, size * 0.1,  // Center spotlight origin
+        size / 2, size / 2, size * 0.8     // Radial expansion
+      );
+      gradient.addColorStop(0, '#2d3748');   // Soft top spotlight highlight
+      gradient.addColorStop(0.5, '#1a202c'); // Neutral mid-tone studio gray
+      gradient.addColorStop(1, '#0f172a');   // Dark rich outer edge
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // 2. Draw Soft Grounding Shadow beneath product
+      const shadowY = size * 0.72;
+      const shadowGradient = ctx.createRadialGradient(
+        size / 2, shadowY, 10,
+        size / 2, shadowY, size * 0.35
+      );
+      shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+      shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.save();
+      ctx.fillStyle = shadowGradient;
+      ctx.beginPath();
+      ctx.ellipse(size / 2, shadowY, size * 0.35, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 3. Draw Product Image centered with padding
+      const padding = size * 0.15;
+      const maxDrawWidth = size - padding * 2;
+      const maxDrawHeight = size - padding * 2;
+
+      let drawWidth = img.width;
+      let drawHeight = img.height;
+
+      const scale = Math.min(maxDrawWidth / drawWidth, maxDrawHeight / drawHeight);
+      drawWidth *= scale;
+      drawHeight *= scale;
+
+      const drawX = (size - drawWidth) / 2;
+      const drawY = (size - drawHeight) / 2;
+
+      ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+      // Convert Canvas to File Blob
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Failed to render professional studio backdrop."));
+          return;
+        }
+        const studioFile = new File([blob], `studio_${transparentFile.name}`, { type: 'image/jpeg' });
+        resolve(studioFile);
+      }, 'image/jpeg', 0.95);
+    };
+
+    img.onerror = (err) => reject(err);
+  });
+};
+
 // -----------------------------------------------------------------------------
 // SELLER LOGIN COMPONENT
 // -----------------------------------------------------------------------------
@@ -96,7 +172,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  
+
   // Extracted Product Metadata State
   const [productDetails, setProductDetails] = useState({
     title: '',
@@ -143,7 +219,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
 
     const base64Data = await fileToBase64(imageFile);
 
-    const promptText = `Analyze this product image and output strictly a JSON object with:
+    const promptText = `Analyze this studio product image and output strictly a JSON object with:
     {
       "title": "A short marketing title",
       "category": "E-commerce category (e.g., Apparel, Footwear, Electronics)",
@@ -182,7 +258,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
     const result = await response.json();
     const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
-    // Extract JSON block from potential markdown output
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -191,7 +266,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
     }
   };
 
-  // 3. Combined Pipeline Executor
+  // 3. Combined Pipeline Executor (Remove.bg -> Studio Canvas -> Gemini)
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -203,17 +278,21 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
     setProductDetails({ title: '', category: '', description: '', priceINR: '', tags: [] });
 
     try {
-      // Step A: Strict Background Removal
-      setStatusMessage('Removing background via Remove.bg API...');
-      const cleanFile = await processRemoveBg(file);
-      setProcessedImage(URL.createObjectURL(cleanFile));
+      // Step A: Strict Background Removal via Remove.bg
+      setStatusMessage('Removing original background via Remove.bg API...');
+      const transparentFile = await processRemoveBg(file);
 
-      // Step B: Gemini Vision Processing
+      // Step B: Render Professional Studio Backdrop
+      setStatusMessage('Applying professional studio backdrop & lighting...');
+      const studioImageFile = await applyStudioBackground(transparentFile);
+      setProcessedImage(URL.createObjectURL(studioImageFile));
+
+      // Step C: Gemini AI Vision Analysis
       setStatusMessage('Analyzing product details with Gemini AI...');
-      const details = await analyzeWithGemini(cleanFile);
+      const details = await analyzeWithGemini(studioImageFile);
       setProductDetails(details);
 
-      setStatusMessage('Processing Complete!');
+      setStatusMessage('Studio Processing Complete!');
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || 'Image processing failed.');
@@ -240,8 +319,8 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-white">Seller Studio Studio</h1>
-            <p className="text-xs text-slate-400">Strict Remove.bg + Gemini AI Pipeline</p>
+            <h1 className="text-base font-bold text-white">Seller Studio</h1>
+            <p className="text-xs text-slate-400">Remove.bg + Studio Backdrop + Gemini AI</p>
           </div>
         </div>
 
@@ -264,14 +343,13 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
 
       {/* Main Content Grid */}
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Upload & Image Controls (5 cols) */}
+        {/* Left Column: Upload & Studio Output (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
             <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
               <Upload className="w-4 h-4 text-amber-400" /> Upload Product Image
             </h2>
 
-            {/* Upload Dropzone */}
             {!originalImage ? (
               <label className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-800 hover:border-amber-500/50 rounded-xl cursor-pointer bg-slate-950/40 hover:bg-slate-900/40 transition-all p-6 text-center group">
                 <input
@@ -284,34 +362,35 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
                 <div className="p-3 rounded-full bg-slate-900 border border-slate-800 text-slate-400 group-hover:text-amber-400 group-hover:scale-110 transition-all mb-3">
                   <ImageIcon className="w-6 h-6" />
                 </div>
-                <p className="text-xs font-semibold text-slate-300">Click to upload image</p>
+                <p className="text-xs font-semibold text-slate-300">Click to upload product image</p>
                 <p className="text-[10px] text-slate-500 mt-1">PNG, JPG or WEBP (Max 10MB)</p>
                 <p className="text-[10px] text-amber-400/80 mt-3 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                  Requires valid Remove.bg API key
+                  Auto-generates Studio Background & Lighting
                 </p>
               </label>
             ) : (
               <div className="space-y-4">
-                {/* Images Preview Grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-semibold text-slate-400">Original</span>
-                    <div className="h-40 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center p-2">
+                    <span className="text-[10px] font-semibold text-slate-400">Original Upload</span>
+                    <div className="h-44 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center p-2">
                       <img src={originalImage} alt="Original" className="max-h-full object-contain rounded" />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-semibold text-slate-400">Remove.bg Result</span>
-                    <div className="h-40 rounded-xl overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] bg-slate-950 border border-slate-800 flex items-center justify-center p-2">
+                    <span className="text-[10px] font-semibold text-amber-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Studio Result
+                    </span>
+                    <div className="h-44 rounded-xl overflow-hidden bg-slate-950 border border-amber-500/30 flex items-center justify-center p-2 shadow-lg shadow-amber-500/5">
                       {processedImage ? (
-                        <img src={processedImage} alt="Processed" className="max-h-full object-contain rounded" />
+                        <img src={processedImage} alt="Studio Output" className="max-h-full object-contain rounded" />
                       ) : (
                         <div className="text-center p-2">
                           {isProcessing ? (
                             <RefreshCw className="w-5 h-5 text-amber-400 animate-spin mx-auto" />
                           ) : (
-                            <span className="text-[10px] text-slate-500">Awaiting Processing</span>
+                            <span className="text-[10px] text-slate-500">Processing Studio Look...</span>
                           )}
                         </div>
                       )}
@@ -328,7 +407,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
               </div>
             )}
 
-            {/* Status & Error Display */}
             {isProcessing && (
               <div className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl text-xs animate-pulse">
                 <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
@@ -353,7 +431,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
             </h2>
 
             <div className="space-y-4">
-              {/* Product Title */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">Product Title</label>
                 <input
@@ -365,7 +442,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
                 />
               </div>
 
-              {/* Category & Price */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Category</label>
@@ -392,7 +468,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">Marketing Description</label>
                 <textarea
@@ -404,7 +479,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
                 />
               </div>
 
-              {/* Tags */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
                   <Tag className="w-3 h-3 text-slate-400" /> Generated Tags
@@ -426,7 +500,6 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio }) {
               </div>
             </div>
 
-            {/* Save Action */}
             <div className="pt-4 border-t border-slate-800 flex justify-end">
               <button
                 disabled={!productDetails.title}
