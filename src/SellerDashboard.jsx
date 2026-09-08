@@ -416,6 +416,13 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
     }
 
     setPublishSuccess(true);
+    handleReset();
+
+    setTimeout(() => {
+      if (onNavigateToStudio) {
+        onNavigateToStudio();
+      }
+    }, 800);
   };
 
   return (
@@ -603,7 +610,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
             {publishSuccess && (
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Product published successfully to the marketplace!</span>
+                <span>Product published! Redirecting to marketplace...</span>
               </div>
             )}
 
@@ -614,7 +621,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
                 disabled={!processedImage || isProcessing}
                 className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 disabled:opacity-50"
               >
-                <CheckCircle2 className="w-4 h-4" /> Publish to Marketplace
+                <CheckCircle2 className="w-4 h-4" /> Publish & View Marketplace
               </button>
             </div>
           </div>
