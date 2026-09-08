@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { GoogleGenAI } from '@google/genai';
 import { 
-  Store, Package, TrendingUp, DollarSign, Plus, Sparkles, 
+  Store, Package, TrendingUp, DollarSign, Sparkles, 
   Globe, LogOut, ArrowRight, ShieldCheck, CheckCircle2, Mic, MicOff, Image as ImageIcon,
   Bot, RefreshCw
 } from 'lucide-react';
+
+// Initialize Gemini Client with standard API key setup
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+const ai = new GoogleGenAI({ apiKey });
 
 const INITIAL_INVENTORY = [
   {
@@ -105,7 +110,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // AI Upload Form States
+  // Form States
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Pottery');
   const [description, setDescription] = useState('');
@@ -113,48 +118,150 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const [stock, setStock] = useState('10');
   const [imagePreview, setImagePreview] = useState(null);
   
-  // AI State Hooks
+  // Processing States
   const [isRecording, setIsRecording] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiError, setAiError] = useState('');
 
-  // 1. AI Image Processing Handler
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+  // Audio Recording Refs & Speech Recognition
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  // Helper: Convert File to Inline Data Base64 Object for Gemini API
+  const fileToGenerativePart = async (file) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result);
-        runAiPricingAndTagging(file.name);
+        const base64Data = reader.result.split(',')[1];
+        resolve({
+          inlineData: {
+            data: base64Data,
+            mimeType: file.type
+          }
+        });
       };
       reader.readAsDataURL(file);
+    });
+  };
+
+  // 1. REAL GEMINI VISION API CALL: Analyze uploaded image directly
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setAiError('');
+    setIsAiAnalyzing(true);
+
+    // Show image preview locally
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+
+    try {
+      if (!apiKey) {
+        throw new Error("Missing Gemini API Key. Please add VITE_GEMINI_API_KEY to your .env file.");
+      }
+
+      const imagePart = await fileToGenerativePart(file);
+      
+      const prompt = `Analyze this handicraft image and respond ONLY with a strict valid JSON object in this exact format:
+      {
+        "title": "A short descriptive title for this artisan craft",
+        "category": "Choose one: Pottery, Textiles, Woodwork, Metalcraft",
+        "description": "A compelling 2-3 sentence story and technique description for marketing this craft globally",
+        "suggestedPrice": "Estimated fair artisan price in INR as an integer, e.g. 2400"
+      }`;
+
+      // Call Gemini 2.5 Flash for Multimodal Vision Task
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [prompt, imagePart]
+      });
+
+      const responseText = response.text;
+      // Clean potential markdown wrap ```json ... ```
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.title) setTitle(parsed.title);
+        if (parsed.category) setCategory(parsed.category);
+        if (parsed.description) setDescription(parsed.description);
+        if (parsed.suggestedPrice) setSuggestedPrice(String(parsed.suggestedPrice));
+      }
+    } catch (err) {
+      console.error("Gemini Vision Error:", err);
+      setAiError(err.message || "Failed to analyze image with Gemini API.");
+    } finally {
+      setIsAiAnalyzing(false);
     }
   };
 
-  // 2. AI Pricing & Tagging Processing
-  const runAiPricingAndTagging = (fileName) => {
-    setIsAiAnalyzing(true);
-    setTimeout(() => {
-      if (!title) setTitle("Handcrafted Royal " + category + " Artifact");
-      setSuggestedPrice("3450");
-      setDescription("Authentic handcrafted item created using traditional regional heritage techniques. Passed through quality inspection and GI provenance validation.");
-      setIsAiAnalyzing(false);
-    }, 1200);
+  // 2. REAL AUDIO TRANSCRIPTION API: Record micro audio & transcribe via Web Speech / Gemini API
+  const startRecording = async () => {
+    setAiError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await processAudioWithGemini(audioBlob);
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Audio recording permission error:", err);
+      setAiError("Microphone access denied or unavailable.");
+    }
   };
 
-  // 3. Audio-to-Text Description Engine
-  const toggleAudioRecording = () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      setTimeout(() => {
-        setIsRecording(false);
-        setDescription((prev) => 
-          prev 
-            ? prev + " [Voice Note Added: Woven by hand using natural vegetable dye materials and pure zari threads over 14 days.]" 
-            : "Woven by hand using natural vegetable dye materials and pure zari threads over 14 days."
-        );
-      }, 3000);
-    } else {
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
+      // Stop audio tracks
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  const processAudioWithGemini = async (audioBlob) => {
+    setIsAiAnalyzing(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = async () => {
+        const base64Audio = reader.result.split(',')[1];
+        const audioPart = {
+          inlineData: {
+            data: base64Audio,
+            mimeType: audioBlob.type || 'audio/webm'
+          }
+        };
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [
+            "Transcribe this voice recording into clear product description text in English, capturing the artisan's details:",
+            audioPart
+          ]
+        });
+
+        if (response.text) {
+          setDescription((prev) => prev ? `${prev}\n\n${response.text}` : response.text);
+        }
+      };
+    } catch (err) {
+      console.error("Gemini Audio Transcription Error:", err);
+      setAiError("Audio transcription failed. Ensure audio is clear.");
+    } finally {
+      setIsAiAnalyzing(false);
     }
   };
 
@@ -171,7 +278,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
       stock: Number(stock),
       sales: 0,
       status: "Active",
-      badge: "AI Tagged"
+      badge: "AI Verified"
     };
 
     setInventory([newItem, ...inventory]);
@@ -208,7 +315,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
               className="px-3.5 py-2 bg-[#111425] border border-amber-500/30 hover:border-amber-500 rounded-xl text-xs font-bold text-amber-300 hover:text-white flex items-center space-x-1.5 transition-all"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>AI Listing Assistant</span>
+              <span>Portal Home</span>
             </button>
           )}
 
@@ -243,7 +350,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
               <Package className="w-4 h-4 text-amber-400" />
             </div>
             <p className="text-2xl font-black text-white">{inventory.length} Items</p>
-            <p className="text-[10px] font-bold text-slate-400">Across 2 craft categories</p>
+            <p className="text-[10px] font-bold text-slate-400">Across active catalog</p>
           </div>
 
           <div className="bg-[#111425]/80 backdrop-blur-md border border-amber-500/20 rounded-2xl p-5 space-y-2">
@@ -269,7 +376,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         <div className="flex items-center justify-between pt-4">
           <div>
             <h2 className="text-lg font-black text-white tracking-tight">Active Craft Listings</h2>
-            <p className="text-xs text-slate-400">Manage real-time prices, stock levels, and AI recommendations</p>
+            <p className="text-xs text-slate-400">Manage real-time prices, stock levels, and Gemini AI listings</p>
           </div>
 
           <button 
@@ -277,7 +384,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
             className="px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:opacity-90 text-slate-950 rounded-xl text-xs font-black transition-all shadow-lg shadow-amber-500/20 flex items-center space-x-2"
           >
             <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>AI-Powered Product Upload</span>
+            <span>AI Product Upload (Gemini API)</span>
           </button>
         </div>
 
@@ -325,24 +432,33 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         </div>
       </main>
 
-      {/* AI Product Upload Modal */}
+      {/* Real Gemini API Product Upload Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-[#111425] border border-amber-500/30 rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl relative">
             <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
               <div className="flex items-center space-x-2">
                 <Bot className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-black text-white">AI Studio Listing Creator</h3>
+                <h3 className="text-base font-black text-white">Gemini API Listing Studio</h3>
               </div>
-              <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">API Connected</span>
+              <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                {isAiAnalyzing && <RefreshCw className="w-3 h-3 animate-spin" />}
+                {isAiAnalyzing ? 'Gemini Processing...' : 'Live API Active'}
+              </span>
             </div>
+
+            {aiError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs">
+                {aiError}
+              </div>
+            )}
             
             <form onSubmit={handleAddProduct} className="space-y-4">
               
-              {/* 1. AI Image Upload Section */}
+              {/* 1. REAL Image Analysis Upload Section */}
               <div>
                 <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
-                  1. Image AI Vision Engine
+                  1. Upload Photo (Analyzed by Gemini 2.5 Vision)
                 </label>
                 <div className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/80 rounded-2xl p-4 text-center cursor-pointer bg-[#080911]/60 transition-all relative">
                   <input 
@@ -358,8 +474,8 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                   ) : (
                     <div className="space-y-1 py-2">
                       <ImageIcon className="w-8 h-8 text-amber-400 mx-auto" />
-                      <p className="text-xs font-extrabold text-slate-200">Upload Craft Photography</p>
-                      <p className="text-[10px] text-slate-500">AI automatically detects craft type, material & heritage classification</p>
+                      <p className="text-xs font-extrabold text-slate-200">Click or Drag Photo to Analyze</p>
+                      <p className="text-[10px] text-slate-500">Gemini will auto-generate title, description, category & price</p>
                     </div>
                   )}
                 </div>
@@ -374,7 +490,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Auto-generated or type title..."
+                    placeholder="Auto-generated by Gemini API..."
                     className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
@@ -394,15 +510,15 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                 </div>
               </div>
 
-              {/* 2. Voice Audio to Speech Description AI */}
+              {/* 2. REAL Audio Recording to Gemini Speech Transcription */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                    2. Regional Voice-to-Description Speech AI
+                    2. Voice-to-Description (Microphone Input)
                   </label>
                   <button 
                     type="button"
-                    onClick={toggleAudioRecording}
+                    onClick={isRecording ? stopRecording : startRecording}
                     className={`px-3 py-1 rounded-xl text-[10px] font-black flex items-center space-x-1.5 transition-all ${
                       isRecording 
                         ? 'bg-rose-500 text-white animate-pulse' 
@@ -410,37 +526,36 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                     }`}
                   >
                     {isRecording ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                    <span>{isRecording ? 'Listening (Hindi/Bengali/Tamil)...' : 'Record Audio Note'}</span>
+                    <span>{isRecording ? 'Stop Recording' : 'Record Audio Note'}</span>
                   </button>
                 </div>
                 <textarea 
                   rows="3"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Click record to describe craft verbally, or edit AI transcribed description here..."
+                  placeholder="Generated description from uploaded image or voice note..."
                   className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
-              {/* 3. Smart Dynamic AI Pricing & Stock */}
+              {/* 3. Dynamic Price & Stock */}
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>3. Smart AI Price (₹)</span>
-                    {isAiAnalyzing && <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />}
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">
+                    3. Recommended Price (₹)
                   </label>
                   <input 
                     type="number" 
                     required
                     value={suggestedPrice}
                     onChange={(e) => setSuggestedPrice(e.target.value)}
-                    placeholder="AI Suggested Price..."
+                    placeholder="Estimated by Gemini..."
                     className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs font-black text-amber-400 focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Available Stock</label>
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Stock Quantity</label>
                   <input 
                     type="number" 
                     required
@@ -464,7 +579,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center space-x-1"
                 >
-                  <span>Publish to Marketplace</span>
+                  <span>Publish Item</span>
                 </button>
               </div>
             </form>
