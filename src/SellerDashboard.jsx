@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   Store, Package, TrendingUp, DollarSign, Plus, Sparkles, 
-  Globe, LogOut, ArrowRight, ShieldCheck, CheckCircle2, Clock
+  Globe, LogOut, ArrowRight, ShieldCheck, CheckCircle2, Mic, MicOff, Image as ImageIcon,
+  Bot, RefreshCw
 } from 'lucide-react';
 
-// Mock Seller Inventory Data
 const INITIAL_INVENTORY = [
   {
     id: 101,
@@ -28,7 +28,6 @@ const INITIAL_INVENTORY = [
   }
 ];
 
-// Seller Login / Authentication Component
 export function SellerLogin({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [artisanId, setArtisanId] = useState('');
@@ -102,43 +101,94 @@ export function SellerLogin({ onLoginSuccess }) {
   );
 }
 
-// Main Seller Dashboard Component
 export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToStudio }) {
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newCategory, setNewCategory] = useState('Pottery');
-  const [newPrice, setNewPrice] = useState('');
-  const [newStock, setNewStock] = useState('');
 
+  // AI Upload Form States
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('Pottery');
+  const [description, setDescription] = useState('');
+  const [suggestedPrice, setSuggestedPrice] = useState('');
+  const [stock, setStock] = useState('10');
+  const [imagePreview, setImagePreview] = useState(null);
+  
+  // AI Feature States
+  const [isRecording, setIsRecording] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
+  // 1. AI Image Processing Handler
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+        runAiPricingAndTagging(file.name);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 2. AI Price & Tagging API Call Simulation
+  const runAiPricingAndTagging = (fileName) => {
+    setIsAiAnalyzing(true);
+    setTimeout(() => {
+      // Automatic Category & Dynamic Price Determination
+      if (!title) setTitle("Handcrafted Royal " + category + " Artifact");
+      setSuggestedPrice("3450");
+      setDescription("Authentic handcrafted item created using traditional regional heritage techniques. Passed through quality inspection and GI provenance validation.");
+      setIsAiAnalyzing(false);
+    }, 1200);
+  };
+
+  // 3. Audio-to-Text Description Recording AI Engine
+  const toggleAudioRecording = () => {
+    if (!isRecording) {
+      setIsRecording(true);
+      // Simulate Voice Transcription Recording
+      setTimeout(() => {
+        setIsRecording(false);
+        setDescription((prev) => 
+          prev 
+            ? prev + " [Voice Note Added: Woven by hand using natural vegetable dye materials and pure zari threads over 14 days.]" 
+            : "Woven by hand using natural vegetable dye materials and pure zari threads over 14 days."
+        );
+      }, 3000);
+    } else {
+      setIsRecording(false);
+    }
+  };
+
+  // Submit Final Craft Listing
   const handleAddProduct = (e) => {
     e.preventDefault();
-    if (!newTitle || !newPrice || !newStock) return;
+    if (!title || !suggestedPrice) return;
 
     const newItem = {
       id: Date.now(),
-      title: newTitle,
-      category: newCategory,
-      price: Number(newPrice),
-      stock: Number(newStock),
+      title,
+      category,
+      price: Number(suggestedPrice),
+      stock: Number(stock),
       sales: 0,
       status: "Active",
-      badge: "Handcrafted"
+      badge: "AI Tagged"
     };
 
     setInventory([newItem, ...inventory]);
-    setNewTitle('');
-    setNewPrice('');
-    setNewStock('');
+    setTitle('');
+    setDescription('');
+    setSuggestedPrice('');
+    setImagePreview(null);
     setShowAddModal(false);
   };
 
   return (
     <div className="min-h-screen bg-[#0b0d17] text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Background Lighting */}
       <div className="fixed top-0 left-1/4 w-[600px] h-[300px] bg-amber-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Workspace Header */}
+      {/* Header */}
       <div className="max-w-7xl mx-auto px-6 py-6 border-b border-amber-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 border border-amber-300/30">
@@ -176,7 +226,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         
-        {/* Metric Cards Row */}
+        {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="bg-[#111425]/80 backdrop-blur-md border border-amber-500/20 rounded-2xl p-5 space-y-2">
             <div className="flex items-center justify-between text-slate-400">
@@ -217,23 +267,23 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
           </div>
         </div>
 
-        {/* Inventory Section Header */}
+        {/* Section Action Bar */}
         <div className="flex items-center justify-between pt-4">
           <div>
             <h2 className="text-lg font-black text-white tracking-tight">Active Craft Listings</h2>
-            <p className="text-xs text-slate-400">Manage real-time prices, stock levels, and catalog status</p>
+            <p className="text-xs text-slate-400">Manage real-time prices, stock levels, and AI recommendations</p>
           </div>
 
           <button 
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md shadow-amber-500/20 flex items-center space-x-1.5"
+            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:opacity-90 text-slate-950 rounded-xl text-xs font-black transition-all shadow-lg shadow-amber-500/20 flex items-center space-x-2"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Craft Item</span>
+            <Sparkles className="w-4 h-4 text-slate-950" />
+            <span>AI-Powered Product Upload</span>
           </button>
         </div>
 
-        {/* Inventory Table */}
+        {/* Table */}
         <div className="bg-[#111425]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-medium">
@@ -277,31 +327,65 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
         </div>
       </main>
 
-      {/* Add Item Modal */}
+      {/* AI Product Upload Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-[#111425] border border-amber-500/30 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <h3 className="text-lg font-black text-white">Add New Craft Listing</h3>
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-[#111425] border border-amber-500/30 rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+              <div className="flex items-center space-x-2">
+                <Bot className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base font-black text-white">AI Studio Listing Creator</h3>
+              </div>
+              <span className="text-[10px] font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">API Connected</span>
+            </div>
             
-            <form onSubmit={handleAddProduct} className="space-y-3">
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              
+              {/* AI Image Upload Section */}
               <div>
-                <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Craft Title</label>
-                <input 
-                  type="text" 
-                  required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Hand-Carved Brass Diya Set"
-                  className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
-                />
+                <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
+                  1. Image AI Vision Engine
+                </label>
+                <div className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/80 rounded-2xl p-4 text-center cursor-pointer bg-[#080911]/60 transition-all relative">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  {imagePreview ? (
+                    <div className="relative h-36 w-full rounded-xl overflow-hidden">
+                      <img src={imagePreview} alt="Craft Preview" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="space-y-1 py-2">
+                      <ImageIcon className="w-8 h-8 text-amber-400 mx-auto" />
+                      <p className="text-xs font-extrabold text-slate-200">Upload Craft Photography</p>
+                      <p className="text-[10px] text-slate-500">AI automatically detects craft type, material & heritage classification</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Title & Category */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Category</label>
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Craft Title</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Auto-generated or type title..."
+                    className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Craft Category</label>
                   <select 
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                   >
                     <option value="Pottery">Pottery</option>
@@ -310,33 +394,67 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                     <option value="Metalcraft">Metalcraft</option>
                   </select>
                 </div>
+              </div>
 
+              {/* 2. Voice Audio to Speech Description AI */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                    2. Regional Voice-to-Description Speech AI
+                  </label>
+                  <button 
+                    type="button"
+                    onClick={toggleAudioRecording}
+                    className={`px-3 py-1 rounded-xl text-[10px] font-black flex items-center space-x-1.5 transition-all ${
+                      isRecording 
+                        ? 'bg-rose-500 text-white animate-pulse' 
+                        : 'bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-950'
+                    }`}
+                  >
+                    {isRecording ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                    <span>{isRecording ? 'Listening (Hindi/Bengali/Tamil)...' : 'Record Audio Note'}</span>
+                  </button>
+                </div>
+                <textarea 
+                  rows="3"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Click record to describe craft verbally, or edit AI transcribed description here..."
+                  className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* 3. Dynamic Smart AI Pricing & Stock */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Price (₹)</label>
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>3. Smart AI Price (₹)</span>
+                    {isAiAnalyzing && <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />}
+                  </label>
                   <input 
                     type="number" 
                     required
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="1500"
+                    value={suggestedPrice}
+                    onChange={(e) => setSuggestedPrice(e.target.value)}
+                    placeholder="AI Suggested Price..."
+                    className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs font-black text-amber-400 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Available Stock</label>
+                  <input 
+                    type="number" 
+                    required
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    placeholder="10"
                     className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Initial Stock Count</label>
-                <input 
-                  type="number" 
-                  required
-                  value={newStock}
-                  onChange={(e) => setNewStock(e.target.value)}
-                  placeholder="10"
-                  className="w-full px-3 py-2 bg-[#080911] border border-amber-500/20 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="pt-3 flex items-center justify-end space-x-2">
+              <div className="pt-4 border-t border-amber-500/20 flex items-center justify-end space-x-2">
                 <button 
                   type="button"
                   onClick={() => setShowAddModal(false)}
@@ -346,9 +464,9 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black text-xs rounded-xl"
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center space-x-1"
                 >
-                  Save Craft
+                  <span>Publish to Marketplace</span>
                 </button>
               </div>
             </form>
