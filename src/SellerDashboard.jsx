@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Upload, Sparkles, AlertCircle, 
-  CheckCircle2, LogOut, ArrowRight, RefreshCw, X, Tag, IndianRupee, Palette, ShoppingBag 
+  CheckCircle2, LogOut, ArrowRight, RefreshCw, X, Tag, IndianRupee, Palette, ShoppingBag, Mic, MicOff 
 } from 'lucide-react';
 
 const REMOVE_BG_KEY = import.meta.env.VITE_REMOVE_BG_API_KEY;
@@ -45,50 +45,50 @@ const applyStudioBackground = (transparentFile, styleId) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
-      const size = Math.max(img.width, img.height, 1080);
-      canvas.width = size;
-      canvas.height = size;
+      const CANVAS_SIZE = 1080;
+      canvas.width = CANVAS_SIZE;
+      canvas.height = CANVAS_SIZE;
 
       let gradient;
       switch (styleId) {
         case 'dark_studio':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.4, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.4, CANVAS_SIZE * 0.1, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.85);
           gradient.addColorStop(0, '#334155');
           gradient.addColorStop(0.5, '#1e293b');
           gradient.addColorStop(1, '#0f172a');
           break;
         case 'clean_white':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.3, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.3, CANVAS_SIZE * 0.1, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.85);
           gradient.addColorStop(0, '#ffffff');
           gradient.addColorStop(0.7, '#f1f5f9');
           gradient.addColorStop(1, '#e2e8f0');
           break;
         case 'warm_amber':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.4, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.4, CANVAS_SIZE * 0.1, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.85);
           gradient.addColorStop(0, '#78350f');
           gradient.addColorStop(0.6, '#451a03');
           gradient.addColorStop(1, '#1c1917');
           break;
         case 'spotlight':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.35, size * 0.05, size / 2, size / 2, size * 0.7);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.35, CANVAS_SIZE * 0.05, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.7);
           gradient.addColorStop(0, '#64748b');
           gradient.addColorStop(0.3, '#1e293b');
           gradient.addColorStop(1, '#020617');
           break;
         case 'pastel_pink':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.3, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.3, CANVAS_SIZE * 0.1, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.85);
           gradient.addColorStop(0, '#fdf2f8');
           gradient.addColorStop(0.6, '#fce7f3');
           gradient.addColorStop(1, '#fbcfe8');
           break;
         case 'soft_sage':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.3, size * 0.1, size / 2, size / 2, size * 0.85);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.3, CANVAS_SIZE * 0.1, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.85);
           gradient.addColorStop(0, '#f0fdf4');
           gradient.addColorStop(0.6, '#dcfce7');
           gradient.addColorStop(1, '#bbf7d0');
           break;
         case 'luxury_gold':
-          gradient = ctx.createRadialGradient(size / 2, size * 0.35, size * 0.08, size / 2, size / 2, size * 0.9);
+          gradient = ctx.createRadialGradient(CANVAS_SIZE / 2, CANVAS_SIZE * 0.35, CANVAS_SIZE * 0.08, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.9);
           gradient.addColorStop(0, '#b45309');
           gradient.addColorStop(0.5, '#78350f');
           gradient.addColorStop(1, '#0f172a');
@@ -97,32 +97,31 @@ const applyStudioBackground = (transparentFile, styleId) => {
           ctx.fillStyle = '#ffffff';
       }
       ctx.fillStyle = gradient || '#ffffff';
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      const shadowY = size * 0.74;
+      const shadowY = CANVAS_SIZE * 0.74;
       const isLightBg = ['clean_white', 'pastel_pink', 'soft_sage'].includes(styleId);
-      const shadowGradient = ctx.createRadialGradient(size / 2, shadowY, 5, size / 2, shadowY, size * 0.38);
+      const shadowGradient = ctx.createRadialGradient(CANVAS_SIZE / 2, shadowY, 5, CANVAS_SIZE / 2, shadowY, CANVAS_SIZE * 0.38);
       shadowGradient.addColorStop(0, isLightBg ? 'rgba(15, 23, 42, 0.22)' : 'rgba(0, 0, 0, 0.7)');
       shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.save();
       ctx.fillStyle = shadowGradient;
       ctx.beginPath();
-      ctx.ellipse(size / 2, shadowY, size * 0.36, size * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(CANVAS_SIZE / 2, shadowY, CANVAS_SIZE * 0.36, CANVAS_SIZE * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      const padding = size * 0.16;
-      const maxDrawWidth = size - padding * 2;
-      const maxDrawHeight = size - padding * 2;
-      let drawWidth = img.width;
-      let drawHeight = img.height;
-      const scale = Math.min(maxDrawWidth / drawWidth, maxDrawHeight / drawHeight);
-      drawWidth *= scale;
-      drawHeight *= scale;
+      const padding = CANVAS_SIZE * 0.15;
+      const maxDrawWidth = CANVAS_SIZE - padding * 2;
+      const maxDrawHeight = CANVAS_SIZE - padding * 2;
+      
+      const scale = Math.min(maxDrawWidth / img.width, maxDrawHeight / img.height);
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
 
-      const drawX = (size - drawWidth) / 2;
-      const drawY = (size - drawHeight) / 2;
+      const drawX = (CANVAS_SIZE - drawWidth) / 2;
+      const drawY = (CANVAS_SIZE - drawHeight) / 2;
       ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
@@ -210,6 +209,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   const [productDetails, setProductDetails] = useState({
     title: '',
@@ -238,6 +238,67 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
     return new File([blob], `bg_removed_${file.name}`, { type: 'image/png' });
   };
 
+  const translateToEnglishDescription = async (spokenText) => {
+    if (!GEMINI_API_KEY) return spokenText;
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Translate the following text spoken by a seller into clear, professional, concise English for an e-commerce product description. Output translated description text only without extra comments: "${spokenText}"` }] }]
+          })
+        }
+      );
+      if (!response.ok) return spokenText;
+      const result = await response.json();
+      return result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || spokenText;
+    } catch {
+      return spokenText;
+    }
+  };
+
+  const handleVoiceInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setErrorMsg("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setStatusMessage("Listening... Speak in any language.");
+    };
+
+    recognition.onresult = async (event) => {
+      const transcript = event.results[0][0].transcript;
+      setIsListening(false);
+      setStatusMessage("Translating voice input to English...");
+      setIsProcessing(true);
+      
+      const englishDescription = await translateToEnglishDescription(transcript);
+      setProductDetails((prev) => ({ ...prev, description: englishDescription }));
+      setIsProcessing(false);
+      setStatusMessage("");
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      setErrorMsg("Voice input error. Please try again.");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
   const analyzeWithGemini = async (imageFile) => {
     if (!GEMINI_API_KEY) throw new Error("Missing Gemini API Key.");
     const base64Data = await fileToBase64(imageFile);
@@ -262,7 +323,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
       }
     );
 
-    if (!response.ok) throw new Error("Gemini AI failed.");
+    if (!response.ok) throw new Error("Gemini API failed.");
     const result = await response.json();
     const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
@@ -284,7 +345,7 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
       const transparentFile = await processRemoveBg(file);
       setCleanBgFile(transparentFile);
 
-      setStatusMessage('Applying background studio...');
+      setStatusMessage('Applying 1:1 studio frame...');
       const studioImageDataUrl = await applyStudioBackground(transparentFile, selectedBgStyle);
       setProcessedImage(studioImageDataUrl);
 
@@ -413,17 +474,17 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
                   <Upload className="w-6 h-6" />
                 </div>
                 <p className="text-xs font-semibold text-slate-300">Upload Product Photo</p>
-                <p className="text-[10px] text-slate-500 mt-1">PNG, JPG, or WEBP</p>
+                <p className="text-[10px] text-slate-500 mt-1">PNG, JPG, or WEBP (Standard 1:1 framing)</p>
               </label>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="h-40 rounded-xl bg-slate-950 border border-slate-800 p-2 flex items-center justify-center">
-                    <img src={originalImage} alt="Original" className="max-h-full object-contain" />
+                  <div className="aspect-square rounded-xl bg-slate-950 border border-slate-800 p-2 flex items-center justify-center">
+                    <img src={originalImage} alt="Original" className="max-h-full max-w-full object-contain" />
                   </div>
-                  <div className="h-40 rounded-xl bg-slate-950 border border-amber-500/40 p-2 flex items-center justify-center">
+                  <div className="aspect-square rounded-xl bg-slate-950 border border-amber-500/40 p-2 flex items-center justify-center">
                     {processedImage ? (
-                      <img src={processedImage} alt="Studio Output" className="max-h-full object-contain" />
+                      <img src={processedImage} alt="Studio Output" className="max-h-full max-w-full object-contain" />
                     ) : (
                       <RefreshCw className="w-5 h-5 text-amber-400 animate-spin" />
                     )}
@@ -497,11 +558,26 @@ export default function SellerDashboard({ onLogout, onNavigateToStudio, onPublis
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Description</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-400">Description</label>
+                  <button
+                    type="button"
+                    onClick={handleVoiceInput}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                      isListening
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
+                    }`}
+                  >
+                    {isListening ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                    <span>{isListening ? 'Listening...' : 'Speak (Auto-Translate)'}</span>
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   value={productDetails.description}
                   onChange={(e) => setProductDetails({ ...productDetails, description: e.target.value })}
+                  placeholder="Describe your product or click the mic button to speak in any language..."
                   className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white resize-none"
                 />
               </div>
