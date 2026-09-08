@@ -113,7 +113,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
   const [stock, setStock] = useState('10');
   const [imagePreview, setImagePreview] = useState(null);
   
-  // AI Feature States
+  // AI State Hooks
   const [isRecording, setIsRecording] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
 
@@ -130,11 +130,10 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     }
   };
 
-  // 2. AI Price & Tagging API Call Simulation
+  // 2. AI Pricing & Tagging Processing
   const runAiPricingAndTagging = (fileName) => {
     setIsAiAnalyzing(true);
     setTimeout(() => {
-      // Automatic Category & Dynamic Price Determination
       if (!title) setTitle("Handcrafted Royal " + category + " Artifact");
       setSuggestedPrice("3450");
       setDescription("Authentic handcrafted item created using traditional regional heritage techniques. Passed through quality inspection and GI provenance validation.");
@@ -142,11 +141,10 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
     }, 1200);
   };
 
-  // 3. Audio-to-Text Description Recording AI Engine
+  // 3. Audio-to-Text Description Engine
   const toggleAudioRecording = () => {
     if (!isRecording) {
       setIsRecording(true);
-      // Simulate Voice Transcription Recording
       setTimeout(() => {
         setIsRecording(false);
         setDescription((prev) => 
@@ -267,7 +265,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
           </div>
         </div>
 
-        {/* Section Action Bar */}
+        {/* Action Bar */}
         <div className="flex items-center justify-between pt-4">
           <div>
             <h2 className="text-lg font-black text-white tracking-tight">Active Craft Listings</h2>
@@ -283,7 +281,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
           </button>
         </div>
 
-        {/* Table */}
+        {/* Inventory Table */}
         <div className="bg-[#111425]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-medium">
@@ -341,7 +339,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
             
             <form onSubmit={handleAddProduct} className="space-y-4">
               
-              {/* AI Image Upload Section */}
+              {/* 1. AI Image Upload Section */}
               <div>
                 <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
                   1. Image AI Vision Engine
@@ -424,7 +422,7 @@ export default function SellerDashboard({ _lang = 'en', onLogout, onNavigateToSt
                 />
               </div>
 
-              {/* 3. Dynamic Smart AI Pricing & Stock */}
+              {/* 3. Smart Dynamic AI Pricing & Stock */}
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1 flex items-center justify-between">
